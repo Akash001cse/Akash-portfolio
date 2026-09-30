@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Mail, Phone, MapPin, Send, CheckCircle2 } from "lucide-react";
 import { Section, Reveal } from "./ui";
 import { PROFILE } from "./data";
+import { collection, addDoc } from "firebase/firestore";
+import { db } from "../../firebase";
 
 export default function Contact() {
   const [form, setForm] = useState({ name: "", email: "", subject: "", message: "" });
@@ -20,29 +22,34 @@ export default function Contact() {
   };
 
   const submit = async (ev: React.FormEvent) => {
-    ev.preventDefault();
-    if (!validate()) return;
-    try {
-      await fetch(`https://formsubmit.co/ajax/${PROFILE.email}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({
-          name: form.name,
-          email: form.email,
-          _subject: form.subject,
-          message: form.message,
-          _template: "table",
-        }),
-      });
-      setSent(true);
-      setForm({ name: "", email: "", subject: "", message: "" });
-      setTimeout(() => setSent(false), 5000);
-    } catch {
-      // Fallback: open user's mail client
-      const body = encodeURIComponent(`From: ${form.name} <${form.email}>\n\n${form.message}`);
-      window.location.href = `mailto:${PROFILE.email}?subject=${encodeURIComponent(form.subject)}&body=${body}`;
-    }
-  };
+  ev.preventDefault();
+
+  if (!validate()) return;
+
+  try {
+    await addDoc(collection(db, "messages"), {
+      name: form.name,
+      email: form.email,
+      subject: form.subject,
+      message: form.message,
+      createdAt: new Date()
+    });
+
+    setSent(true);
+
+    setForm({
+      name: "",
+      email: "",
+      subject: "",
+      message: ""
+    });
+
+    setTimeout(() => setSent(false), 5000);
+
+  } catch (error) {
+    console.error("Error sending message:", error);
+  }
+};
 
   const field = (k: keyof typeof form, label: string, type = "text", textarea = false) => (
     <div>
